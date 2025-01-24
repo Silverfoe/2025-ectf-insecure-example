@@ -46,7 +46,7 @@ def gen_subscription(
     return struct.pack("<IQQI", device_id, start, end, channel)
 
 
-def parse_args():
+def parse_args():       # DO NOT TOUCH!
     """Define and parse the command line arguments
 
     NOTE: Your design must not change this function
