@@ -179,7 +179,7 @@ timestamp of 32, and an end timestamp of 128 for channel 1.
 #### Linux and PowerShell
 
 ```bash
-python -m ectf25_design.gen_subscription secrets/secrets.json subscription.bin 0xDEADBEEF 32 128 1
+python -m ectf25_design.gen_subscription C:\Users\Administrator\Documents\GitHub\2025-ectf-insecure-example\secrets\secrets.json subscription.bin 0xDEADBEEF 32 128 1
 ```
 
 ## Flashing
@@ -211,7 +211,7 @@ python -m ectf25.utils.flash ./build_out/max78000.bin /dev/tty.usbmodem11302
 #### PowerShell
 
 ```
-python -m ectf25.utils.flash .\build_out\max78000.bin COM12
+python -m ectf25.utils.flash C:\Users\Administrator\Documents\GitHub\2025-ectf-insecure-example\build\insecure.bin COM6
 ```
 
 ## Host Tools
@@ -244,7 +244,7 @@ python -m ectf25.tv.list /dev/tty.usbmodem11302
 #### PowerShell
 
 ```
-python -m ectf25.tv.list COM12
+python -m ectf25.tv.list COM6
 ```
 
 ### Subscription Update Tool
@@ -255,6 +255,8 @@ decoder.
 ```
 python -m ectf25.tv.subscribe -h
 usage: ectf25.tv.subscribe [-h] subscription_file port
+
+python -m ectf25.tv.subscribe C:\Users\Administrator\Documents\GitHub\2025-ectf-insecure-example\subscription.bin COM6
 
 Updates a Decoder's subscription.
 
