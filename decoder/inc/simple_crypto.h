@@ -1,70 +1,89 @@
 /**
- * @file "simple_crypto.h"
- * @author Ben Janis
- * @brief Simplified Crypto API Header 
- * @date 2025
- *
- * This source file is part of an example system for MITRE's 2025 Embedded System CTF (eCTF).
- * This code is being provided only for educational purposes for the 2025 MITRE eCTF competition,
- * and may not meet MITRE standards for quality. Use this code at your own risk!
- *
- * @copyright Copyright (c) 2025 The MITRE Corporation
+ * @file simple_crypto.h
+ * @brief Secure Cryptographic API using MbedTLS (AES-256-GCM & HMAC-SHA256)
  */
 
-#if CRYPTO_EXAMPLE
-#ifndef ECTF_CRYPTO_H
-#define ECTF_CRYPTO_H
-
-#include "wolfssl/wolfcrypt/aes.h"
-#include "wolfssl/wolfcrypt/hash.h"
-
-/******************************** MACRO DEFINITIONS ********************************/
-#define BLOCK_SIZE AES_BLOCK_SIZE
-#define KEY_SIZE 16
-#define HASH_SIZE MD5_DIGEST_SIZE
-
-/******************************** FUNCTION PROTOTYPES ********************************/
-/** @brief Encrypts plaintext using a symmetric cipher
- *
- * @param plaintext A pointer to a buffer of length len containing the
- *          plaintext to encrypt
- * @param len The length of the plaintext to encrypt. Must be a multiple of
- *          BLOCK_SIZE (16 bytes)
- * @param key A pointer to a buffer of length KEY_SIZE (16 bytes) containing
- *          the key to use for encryption
- * @param ciphertext A pointer to a buffer of length len where the resulting
- *          ciphertext will be written to
- *
- * @return 0 on success, -1 on bad length, other non-zero for other error
- */
-int encrypt_sym(uint8_t *plaintext, size_t len, uint8_t *key, uint8_t *ciphertext);
-
-/** @brief Decrypts ciphertext using a symmetric cipher
- *
- * @param ciphertext A pointer to a buffer of length len containing the
- *           ciphertext to decrypt
- * @param len The length of the ciphertext to decrypt. Must be a multiple of
- *           BLOCK_SIZE (16 bytes)
- * @param key A pointer to a buffer of length KEY_SIZE (16 bytes) containing
- *           the key to use for decryption
- * @param plaintext A pointer to a buffer of length len where the resulting
- *           plaintext will be written to
- *
- * @return 0 on success, -1 on bad length, other non-zero for other error
- */
-int decrypt_sym(uint8_t *ciphertext, size_t len, uint8_t *key, uint8_t *plaintext);
-
-/** @brief Hashes arbitrary-length data
- *
- * @param data A pointer to a buffer of length len containing the data
- *           to be hashed
- * @param len The length of the plaintext to hash
- * @param hash_out A pointer to a buffer of length HASH_SIZE (16 bytes) where the resulting
- *           hash output will be written to
- *
- * @return 0 on success, non-zero for other error
- */
-int hash(void *data, size_t len, uint8_t *hash_out);
-
-#endif // CRYPTO_EXAMPLE
-#endif // ECTF_CRYPTO_H
+ #ifndef SIMPLE_CRYPTO_H
+ #define SIMPLE_CRYPTO_H
+ 
+ #include <stdint.h>
+ #include <stddef.h>
+ #include "mbedtls/aes.h"
+ #include "mbedtls/gcm.h"
+ #include "mbedtls/md.h"
+ 
+ /******************************** CONSTANTS ********************************/
+ 
+ #define BLOCK_SIZE       16   // AES block size (fixed)
+ #define AES_KEY_SIZE     32   // AES-256 key size (32 bytes)
+ #define GCM_TAG_SIZE     16   // Authentication tag for AES-GCM (16 bytes)
+ #define GCM_NONCE_SIZE   12   // Recommended nonce size for AES-GCM (12 bytes)
+ #define SHA256_SIZE      32   // SHA-256 output size (32 bytes)
+ #define HMAC_KEY_SIZE    32   // HMAC-SHA256 key size (32 bytes)
+ #define HMAC_SIZE        32   // HMAC-SHA256 output size (32 bytes)
+ 
+ /******************************** FUNCTION PROTOTYPES ********************************/
+ 
+ /**
+  * @brief Encrypts data using AES-256-GCM.
+  *
+  * @param plaintext     Pointer to the plaintext buffer.
+  * @param plaintext_len Length of the plaintext data.
+  * @param key           Pointer to a 32-byte AES key.
+  * @param nonce         Pointer to a 12-byte nonce (IV).
+  * @param aad           Pointer to additional authenticated data (can be NULL).
+  * @param aad_len       Length of the additional authenticated data.
+  * @param ciphertext    Pointer to the buffer where encrypted data will be stored.
+  * @param tag           Pointer to a 16-byte buffer to store the authentication tag.
+  *
+  * @return 0 on success, non-zero for errors.
+  */
+ int sc_aes_gcm_encrypt(const uint8_t *plaintext, size_t plaintext_len,
+                         const uint8_t *key, const uint8_t *nonce,
+                         const uint8_t *aad, size_t aad_len,
+                         uint8_t *ciphertext, uint8_t *tag);
+ 
+ /**
+  * @brief Decrypts data using AES-256-GCM.
+  *
+  * @param ciphertext    Pointer to the encrypted buffer.
+  * @param ciphertext_len Length of the ciphertext.
+  * @param key           Pointer to a 32-byte AES key.
+  * @param nonce         Pointer to a 12-byte nonce (IV).
+  * @param aad           Pointer to additional authenticated data (can be NULL).
+  * @param aad_len       Length of the additional authenticated data.
+  * @param tag           Pointer to a 16-byte authentication tag.
+  * @param plaintext     Pointer to the buffer where decrypted data will be stored.
+  *
+  * @return 0 on success, non-zero for errors.
+  */
+ int sc_aes_gcm_decrypt(const uint8_t *ciphertext, size_t ciphertext_len,
+                         const uint8_t *key, const uint8_t *nonce,
+                         const uint8_t *aad, size_t aad_len,
+                         const uint8_t *tag, uint8_t *plaintext);
+ 
+ /**
+  * @brief Computes an HMAC-SHA256 authentication tag.
+  *
+  * @param data     Pointer to the input data.
+  * @param len      Length of the input data.
+  * @param key      Pointer to a 32-byte HMAC key.
+  * @param hmac_out Pointer to a 32-byte buffer to store the HMAC tag.
+  *
+  * @return 0 on success, non-zero for errors.
+  */
+ int sc_hmac_sha256(const uint8_t *data, size_t len, const uint8_t *key, uint8_t *hmac_out);
+ 
+ /**
+  * @brief Computes a SHA-256 hash of arbitrary data.
+  *
+  * @param data     Pointer to the input data.
+  * @param len      Length of the input data.
+  * @param hash_out Pointer to a 32-byte buffer to store the SHA-256 hash.
+  *
+  * @return 0 on success, non-zero for errors.
+  */
+ int sc_sha256_hash(const void *data, size_t len, uint8_t *hash_out);
+ 
+ #endif /* SIMPLE_CRYPTO_H */
+ 

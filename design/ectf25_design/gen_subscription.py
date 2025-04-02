@@ -14,6 +14,8 @@ import argparse
 import json
 from pathlib import Path
 import struct
+import hmac
+import hashlib
 
 from loguru import logger
 
@@ -21,7 +23,7 @@ from loguru import logger
 def gen_subscription(
     secrets: bytes, device_id: int, start: int, end: int, channel: int
 ) -> bytes:
-    """Generate the contents of a subscription.
+    """Generate the contents of a subscription, now with HMAC authentication.
 
     The output of this will be passed to the Decoder using ectf25.tv.subscribe
 
@@ -31,22 +33,34 @@ def gen_subscription(
     :param end: Last timestamp the subscription is valid for
     :param channel: Channel to enable
     """
-    # TODO: Update this function to provide a Decoder with whatever data it needs to
-    #   subscribe to a new channel
-
     # Load the json of the secrets file
     secrets = json.loads(secrets)
 
-    # You can use secrets generated using `gen_secrets` here like:
-    # secrets["some_secrets"]
-    # Which would return "EXAMPLE" in the reference design.
-    # Please note that the secrets are READ ONLY at this sage!
+    # Ensure required secrets exist
+    if "hmac_key" not in secrets:
+        raise ValueError("Secrets file missing required 'hmac_key' entry.")
 
-    # Pack the subscription. This will be sent to the decoder with ectf25.tv.subscribe
-    return struct.pack("<IQQI", device_id, start, end, channel)
+    # Convert HMAC key from hex
+    hmac_key = bytes.fromhex(secrets["hmac_key"])
+
+    # Ensure the channel is in the allowed list
+    allowed_channels = secrets.get("channels", [])
+    if channel not in allowed_channels:
+        raise ValueError(f"Error: Channel {channel} is not in the allowed channel list.")
+
+    # Pack the subscription data
+    subscription_data = struct.pack("<IQQI", device_id, start, end, channel)
+
+    # Generate HMAC signature to authenticate the subscription update
+    hmac_signature = hmac.new(hmac_key, subscription_data, hashlib.sha256).digest()
+
+    # Append HMAC to subscription data
+    full_subscription = subscription_data + hmac_signature
+
+    return full_subscription
 
 
-def parse_args():       # DO NOT TOUCH!
+def parse_args():  # DO NOT TOUCH!
     """Define and parse the command line arguments
 
     NOTE: Your design must not change this function
@@ -83,23 +97,23 @@ def main():
     # Parse the command line arguments
     args = parse_args()
 
-    subscription = gen_subscription(
-        args.secrets_file.read(), args.device_id, args.start, args.end, args.channel
-    )
+    try:
+        subscription = gen_subscription(
+            args.secrets_file.read(), args.device_id, args.start, args.end, args.channel
+        )
 
-    # Print the generated subscription for your own debugging
-    # Attackers will NOT have access to the output of this (although they may have
-    # subscriptions in certain scenarios), but feel free to remove
-    #
-    # NOTE: Printing sensitive data is generally not good security practice
-    logger.debug(f"Generated subscription: {subscription}")
+        # Debugging info - Feel free to remove in production
+        logger.debug(f"Generated subscription: {subscription.hex()}")
 
-    # Open the file, erroring if the file exists unless the --force arg is provided
-    with open(args.subscription_file, "wb" if args.force else "xb") as f:
-        f.write(subscription)
+        # Open the file, erroring if the file exists unless the --force arg is provided
+        with open(args.subscription_file, "wb" if args.force else "xb") as f:
+            f.write(subscription)
 
-    # For your own debugging. Feel free to remove
-    logger.success(f"Wrote subscription to {str(args.subscription_file.absolute())}")
+        # Debugging output - Feel free to remove
+        logger.success(f"Wrote subscription to {str(args.subscription_file.absolute())}")
+
+    except Exception as e:
+        logger.error(f"Error generating subscription: {str(e)}")
 
 
 if __name__ == "__main__":
